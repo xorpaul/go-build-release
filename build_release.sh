@@ -103,6 +103,26 @@ create_gitea_release() {
 		TAG_COMMIT=$(git rev-parse "${V}")
 		echo "Tag ${V} points to commit: ${TAG_COMMIT}"
 
+		# Extract changelog section for this version if CHANGELOG.md exists
+		RELEASE_BODY="Release ${V}"
+		if [ -f "CHANGELOG.md" ]; then
+			echo "Found CHANGELOG.md, extracting release notes for ${V}..."
+			# Use awk to extract the section between ## [version] and the next ## heading
+			# Try both with and without 'v' prefix to support different changelog formats
+			CHANGELOG_SECTION=$(awk -v version="${V}" '
+				/^## \['"${V}"'\]/ { found=1; next }
+				found && /^## \[/ { exit }
+				found { print }
+			' CHANGELOG.md | sed '/^$/N;/^\n$/D')
+
+			if [ -n "$CHANGELOG_SECTION" ]; then
+				echo "Extracted changelog section for ${V}"
+				RELEASE_BODY="$CHANGELOG_SECTION"
+			else
+				echo "No changelog section found for ${V}, using default body"
+			fi
+		fi
+
 		# Check if release already exists
 		EXISTING_RELEASE=$(curl -s -H "Authorization: token ${GIT_TOKEN}" \
 			"${GIT_URL}/api/v1/repos/${GIT_REPO_OWNER}/${GIT_REPO_NAME}/releases/tags/${V}")
@@ -113,9 +133,10 @@ create_gitea_release() {
 			echo "Using existing release ID: $RELEASE_ID"
 		else
 			echo "Creating new release for tag ${V}..."
-			# create a new release
+			# create a new release with changelog body
 			RELEASE_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -H "Authorization: token ${GIT_TOKEN}" \
-				-d "{\"tag_name\":\"${V}\",\"target_commitish\":\"${TAG_COMMIT}\",\"name\":\"${V}\",\"body\":\"Release ${V}\",\"draft\":false,\"prerelease\":false}" \
+				-d "$(jq -n --arg tag "${V}" --arg commit "${TAG_COMMIT}" --arg name "${V}" --arg body "${RELEASE_BODY}" \
+					'{tag_name: $tag, target_commitish: $commit, name: $name, body: $body, draft: false, prerelease: false}')" \
 				"${GIT_URL}/api/v1/repos/${GIT_REPO_OWNER}/${GIT_REPO_NAME}/releases")
 
 			echo "$RELEASE_RESPONSE" | jq .
