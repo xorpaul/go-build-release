@@ -107,19 +107,21 @@ create_gitea_release() {
 		RELEASE_BODY="Release ${V}"
 		if [ -f "CHANGELOG.md" ]; then
 			echo "Found CHANGELOG.md, extracting release notes for ${V}..."
+			# Version without 'v' prefix for changelog lookup
+			VERSION_NO_V="${V#v}"
 			# Use awk to extract the section between ## [version] and the next ## heading
-			# Try both with and without 'v' prefix to support different changelog formats
-			CHANGELOG_SECTION=$(awk -v version="${V}" '
-				/^## \['"${V}"'\]/ { found=1; next }
+			# Try with version number without 'v' prefix (common changelog format)
+			CHANGELOG_SECTION=$(awk -v version="${VERSION_NO_V}" '
+				$0 ~ "^## \\[" version "\\]" { found=1; next }
 				found && /^## \[/ { exit }
 				found { print }
 			' CHANGELOG.md | sed '/^$/N;/^\n$/D')
 
 			if [ -n "$CHANGELOG_SECTION" ]; then
-				echo "Extracted changelog section for ${V}"
+				echo "Extracted changelog section for ${VERSION_NO_V}"
 				RELEASE_BODY="$CHANGELOG_SECTION"
 			else
-				echo "No changelog section found for ${V}, using default body"
+				echo "No changelog section found for ${V} or ${VERSION_NO_V}, using default body"
 			fi
 		fi
 
