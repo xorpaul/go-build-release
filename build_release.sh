@@ -82,6 +82,18 @@ if [ "$BUILD_WINDOWS" = true ]; then
 fi
 
 # Function definitions
+print_checksums() {
+	echo ""
+	echo "SHA256 checksums of built binaries:"
+	echo "===================================="
+	for FILE in build/*; do
+		if [ -f "$FILE" ]; then
+			sha256sum "$FILE"
+		fi
+	done
+	echo ""
+}
+
 create_github_release() {
 	if gh auth status >/dev/null 2>&1; then
 		echo "GitHub CLI is authenticated."
@@ -211,3 +223,5 @@ if [[ "$REMOTE_URL" =~ "github.com" ]]; then
 else
 	create_gitea_release
 fi
+
+print_checksums
