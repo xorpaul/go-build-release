@@ -123,8 +123,8 @@ create_gitea_release() {
 			VERSION_NO_V="${V#v}"
 			# Use awk to extract the section between ## [version] and the next ## heading
 			# Try with version number without 'v' prefix (common changelog format)
-			CHANGELOG_SECTION=$(awk -v version="${VERSION_NO_V}" '
-				$0 ~ "^## \\[" version "\\]" { found=1; next }
+			CHANGELOG_SECTION=$(awk -v version="${V}" -v version_no_v="${VERSION_NO_V}" '
+				$0 ~ "^## \\[" version "\\]" || $0 ~ "^## \\[" version_no_v "\\]" { found=1; next }
 				found && /^## \[/ { exit }
 				found { print }
 			' CHANGELOG.md | sed '/^$/N;/^\n$/D')
