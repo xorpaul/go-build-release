@@ -22,6 +22,7 @@ PROJECTNAME=$(basename "$(pwd)")
 UPX=$(which upx)
 UPX_COMPRESSION_LEVEL=5
 BUILDTIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+MAIN_PACKAGE=.
 GOPARAMS="-s -w -X main.buildtime=$BUILDTIME -X main.buildversion=${V}"
 
 # Read build configuration from .build.cfg if it exists
@@ -51,10 +52,19 @@ else
 	echo "No .build.cfg found, building for all platforms"
 fi
 
+# Auto-detect main package when root has no Go files (cmd/<name>/ project layout)
+if [ "$MAIN_PACKAGE" = "." ] && [ -z "$(ls *.go 2>/dev/null)" ]; then
+	DETECTED=$(find . -maxdepth 4 -name "main.go" -not -path "*/vendor/*" | sort | head -1 | xargs dirname 2>/dev/null || true)
+	if [ -n "$DETECTED" ]; then
+		MAIN_PACKAGE="$DETECTED"
+		echo "Auto-detected main package: $MAIN_PACKAGE"
+	fi
+fi
+
 # Build for Linux AMD64
 if [ "$BUILD_LINUX" = true ]; then
 	echo "Building for Linux AMD64..."
-	env GOOS=linux GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_linux-amd64
+	env GOOS=linux GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_linux-amd64 ${MAIN_PACKAGE}
 	if [ ${#UPX} -gt 0 ]; then
 		${UPX} -${UPX_COMPRESSION_LEVEL} build/${PROJECTNAME}_${V}_linux-amd64
 	fi
@@ -63,19 +73,19 @@ fi
 # Build for macOS AMD64
 if [ "$BUILD_MACOS_AMD64" = true ]; then
 	echo "Building for macOS AMD64..."
-	env GOOS=darwin GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_macos-amd64
+	env GOOS=darwin GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_macos-amd64 ${MAIN_PACKAGE}
 fi
 
 # Build for macOS ARM64
 if [ "$BUILD_MACOS_ARM64" = true ]; then
 	echo "Building for macOS ARM64..."
-	env GOOS=darwin GOARCH=arm64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_macos-arm64
+	env GOOS=darwin GOARCH=arm64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_macos-arm64 ${MAIN_PACKAGE}
 fi
 
 # Build for Windows AMD64
 if [ "$BUILD_WINDOWS" = true ]; then
 	echo "Building for Windows AMD64..."
-	env GOOS=windows GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_windows-amd64.exe
+	env GOOS=windows GOARCH=amd64 go build -ldflags "${GOPARAMS}" -o build/${PROJECTNAME}_${V}_windows-amd64.exe ${MAIN_PACKAGE}
 	if [ ${#UPX} -gt 0 ]; then
 		${UPX} -${UPX_COMPRESSION_LEVEL} build/${PROJECTNAME}_${V}_windows-amd64.exe
 	fi
