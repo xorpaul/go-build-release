@@ -92,6 +92,32 @@ if [ "$BUILD_WINDOWS" = true ]; then
 fi
 
 # Function definitions
+
+# release_body sets RELEASE_BODY to the CHANGELOG.md section for ${V}, or to
+# "Release ${V}" if there is none. Matches "## [1.0.0]", "## v1.0.0 (date)",
+# "## 1.0.0" etc. (same headings as update_release_descriptions.sh).
+release_body() {
+	RELEASE_BODY="Release ${V}"
+	if [ ! -f "CHANGELOG.md" ]; then
+		return
+	fi
+	echo "Found CHANGELOG.md, extracting release notes for ${V}..."
+	local VERSION_NO_V="${V#v}"
+	local CHANGELOG_SECTION
+	CHANGELOG_SECTION=$(awk -v tag="${V}" -v ver="${VERSION_NO_V}" '
+		$0 ~ "^## (\\[" tag "\\]|" tag "([[:space:](]|$))" \
+		|| $0 ~ "^## (\\[" ver  "\\]|" ver  "([[:space:](]|$))" { found=1; next }
+		found && /^## / { exit }
+		found { print }
+	' CHANGELOG.md | sed '/^[[:space:]]*$/{ N; /^\n[[:space:]]*$/d }' | sed '/[^[:space:]]/,$!d')
+	if [ -n "$CHANGELOG_SECTION" ]; then
+		echo "Extracted changelog section for ${V}"
+		RELEASE_BODY="$CHANGELOG_SECTION"
+	else
+		echo "No changelog section found for ${V} or ${VERSION_NO_V}, using default body"
+	fi
+}
+
 print_checksums() {
 	echo ""
 	echo "SHA256 checksums of built binaries:"
@@ -111,8 +137,9 @@ create_github_release() {
 		echo "Error: GitHub CLI is not authenticated. Please run 'gh auth login'." >&2
 		exit 1
 	fi
+	release_body
 	echo "creating github release ${V}"
-	gh release create --fail-on-no-commits --verify-tag --repo ${GIT_REPO_OWNER}/${GIT_REPO_NAME} --title "${V}" --notes "Automated release of ${V}" ${V} "./build/${GIT_REPO_NAME}*"
+	gh release create --fail-on-no-commits --verify-tag --repo "${GIT_REPO_OWNER}/${GIT_REPO_NAME}" --title "${V}" --notes "${RELEASE_BODY}" "${V}" ./build/${PROJECTNAME}_*
 }
 
 create_gitea_release() {
@@ -125,27 +152,7 @@ create_gitea_release() {
 		TAG_COMMIT=$(git rev-parse "${V}")
 		echo "Tag ${V} points to commit: ${TAG_COMMIT}"
 
-		# Extract changelog section for this version if CHANGELOG.md exists
-		RELEASE_BODY="Release ${V}"
-		if [ -f "CHANGELOG.md" ]; then
-			echo "Found CHANGELOG.md, extracting release notes for ${V}..."
-			# Version without 'v' prefix for changelog lookup
-			VERSION_NO_V="${V#v}"
-			# Use awk to extract the section between ## [version] and the next ## heading
-			# Try with version number without 'v' prefix (common changelog format)
-			CHANGELOG_SECTION=$(awk -v version="${V}" -v version_no_v="${VERSION_NO_V}" '
-				$0 ~ "^## \\[" version "\\]" || $0 ~ "^## \\[" version_no_v "\\]" { found=1; next }
-				found && /^## \[/ { exit }
-				found { print }
-			' CHANGELOG.md | sed '/^$/N;/^\n$/D')
-
-			if [ -n "$CHANGELOG_SECTION" ]; then
-				echo "Extracted changelog section for ${VERSION_NO_V}"
-				RELEASE_BODY="$CHANGELOG_SECTION"
-			else
-				echo "No changelog section found for ${V} or ${VERSION_NO_V}, using default body"
-			fi
-		fi
+		release_body
 
 		# Check if release already exists
 		EXISTING_RELEASE=$(curl -s -H "Authorization: token ${GIT_TOKEN}" \

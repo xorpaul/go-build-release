@@ -125,6 +125,7 @@ If no `.build.cfg` file exists, all platforms are built by default.
 7. **Release Creation**: 
    - GitHub repositories: Uses GitHub CLI to create releases
    - Gitea repositories: Uses API calls to create releases
+   - Release text (both): the `CHANGELOG.md` section for the version, if there is one. Headings like `## [1.0.0]`, `## v1.0.0 (2026-10-01)` and `## 1.0.0` match; the section ends at the next `## ` heading. Without one the text is `Release vX.Y.Z`.
 8. **Asset Upload**: Uploads all built binaries as release assets
 
 ## Output Structure
