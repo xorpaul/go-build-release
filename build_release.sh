@@ -223,13 +223,20 @@ echo "Detected Git URL: ${GIT_URL}"
 echo "Detected repo: ${GIT_REPO_OWNER}/${GIT_REPO_NAME}"
 echo "Current branch: ${CURRENT_BRANCH}"
 
-# Create git tag if it doesn't exist
+# Create git tag if it doesn't exist, and push it if the remote doesn't have
+# it yet (e.g. a tag created locally but never pushed): the GitHub release
+# is created with --verify-tag.
 if ! git rev-parse "${V}" >/dev/null 2>&1; then
 	echo "Creating git tag: ${V}"
 	git tag -a "${V}" -m "Release ${V}"
-	git push origin "${V}"
 else
-	echo "Git tag ${V} already exists"
+	echo "Git tag ${V} already exists locally"
+fi
+if git ls-remote --exit-code --tags origin "refs/tags/${V}" >/dev/null 2>&1; then
+	echo "Git tag ${V} already exists on origin"
+else
+	echo "Pushing git tag ${V} to origin"
+	git push origin "refs/tags/${V}"
 fi
 
 # Skip Gitea release creation if this is a GitHub repository
