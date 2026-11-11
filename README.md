@@ -105,6 +105,17 @@ BUILD_WINDOWS=true
 
 If no `.build.cfg` file exists, all platforms are built by default.
 
+#### Libraries without a binary
+
+For a Go library (no `main` package) set all four options to `false`. Nothing is built, the tests still run, the tag is created and pushed, and the release is created (GitHub: without assets; Gitea: nothing is uploaded) with the `CHANGELOG.md` section as release text.
+
+```bash
+BUILD_LINUX=false
+BUILD_MACOS_AMD64=false
+BUILD_MACOS_ARM64=false
+BUILD_WINDOWS=false
+```
+
 ### Available Configuration Options
 - `BUILD_LINUX`: Linux AMD64 builds
 - `BUILD_MACOS_AMD64`: macOS Intel builds

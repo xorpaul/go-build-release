@@ -139,7 +139,19 @@ create_github_release() {
 	fi
 	release_body
 	echo "creating github release ${V}"
-	gh release create --fail-on-no-commits --verify-tag --repo "${GIT_REPO_OWNER}/${GIT_REPO_NAME}" --title "${V}" --notes "${RELEASE_BODY}" "${V}" ./build/${PROJECTNAME}_*
+	# only attach what was built: libraries without binaries (all BUILD_* false in .build.cfg) have no assets,
+	# and gh fails with "no matches found" for an asset glob that matches nothing
+	local ASSETS=()
+	local ASSET
+	for ASSET in ./build/${PROJECTNAME}_*; do
+		if [ -f "$ASSET" ]; then
+			ASSETS+=("$ASSET")
+		fi
+	done
+	if [ ${#ASSETS[@]} -eq 0 ]; then
+		echo "No built binaries found in build/, creating the release without assets"
+	fi
+	gh release create --fail-on-no-commits --verify-tag --repo "${GIT_REPO_OWNER}/${GIT_REPO_NAME}" --title "${V}" --notes "${RELEASE_BODY}" "${V}" ${ASSETS[@]+"${ASSETS[@]}"}
 }
 
 create_gitea_release() {
@@ -185,6 +197,9 @@ create_gitea_release() {
 
 		# upload the binaries
 		for FILE in build/*; do
+			if [ ! -f "$FILE" ]; then
+				continue # nothing built, e.g. a library with all BUILD_* false
+			fi
 			echo "Uploading ${FILE} to Gitea..."
 			FILENAME=$(basename "${FILE}")
 			curl -s -X POST -H "Authorization: token ${GIT_TOKEN}" \
